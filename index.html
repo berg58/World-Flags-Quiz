@@ -1,23 +1,265 @@
 <!DOCTYPE html>
 <html lang="sv">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Världens Flaggor Quiz</title>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kan du världens flaggor?</title>
+    <!-- Laddar Tailwind CSS via CDN för enkel styling -->
     <script src="https://cdn.tailwindcss.com"></script>
-  <script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0"
-  }
-}
-</script>
+    <style>
+        /* Sätter 'Inter' som standardfont */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #f0f4f8; /* Lätt ljusblå bakgrund */
+        }
+        /* Extra stor flagga */
+        #flag-display {
+            font-size: 8rem;
+            line-height: 1;
+            transition: transform 0.3s ease-out;
+            cursor: default;
+        }
+        /* Knappeffekt för feedback */
+        .option-button:active {
+            transform: scale(0.98);
+        }
+        /* Animation för meddelanden */
+        @keyframes fade-in-out {
+            0% { opacity: 0; transform: translateY(-10px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(10px); }
+        }
+        #message-display {
+            animation: fade-in-out 3s ease-in-out forwards;
+        }
+        /* Mobilanpassning: Minskar storlek på flaggan på små skärmar */
+        @media (max-width: 640px) {
+            #flag-display {
+                font-size: 6rem;
+            }
+        }
+    </style>
 </head>
-  <body class="bg-slate-900">
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
-</html>
+<body class="p-4 sm:p-8">
+
+    <div id="app-container" class="bg-white p-6 sm:p-10 rounded-xl shadow-2xl max-w-lg w-full text-center">
+        <!-- Rubrik -->
+        <h1 class="text-3xl sm:text-4xl font-bold mb-6 text-gray-800">Kan du världens flaggor?</h1>
+
+        <!-- Poäng och Återställningsknapp -->
+        <div class="flex justify-between items-center mb-6 border-b pb-4">
+            <p class="text-xl font-semibold text-indigo-600">Poäng: <span id="score-display">0</span></p>
+            <button id="reset-button" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition duration-200">
+                Börja om
+            </button>
+        </div>
+
+        <!-- Meddelandedisplay (för "Rätt!" / "Fel!") -->
+        <div class="h-8 mb-4">
+            <p id="message-display" class="font-bold text-lg opacity-0"></p>
+        </div>
+
+        <!-- Flagga -->
+        <div class="flex justify-center items-center h-32 mb-8">
+            <span id="flag-display"></span>
+        </div>
+
+        <!-- Alternativknappar -->
+        <div id="options-container" class="grid gap-4">
+            <!-- Knapparna renderas av JavaScript här -->
+        </div>
+
+    </div>
+
+    <script>
+        // Globala variabler för DOM-element och spelstatus
+        const scoreDisplay = document.getElementById('score-display');
+        const flagDisplay = document.getElementById('flag-display');
+        const optionsContainer = document.getElementById('options-container');
+        const resetButton = document.getElementById('reset-button');
+        const messageDisplay = document.getElementById('message-display');
+
+        let score = 0;
+        let correctAnswer = null;
+        let allCountries = [];
+
+        // 2. Data: Minst 30 länder med flagg-emojis
+        const countryData = [
+            { name: 'Sverige', flag: '🇸🇪' },
+            { name: 'Norge', flag: '🇳🇴' },
+            { name: 'Danmark', flag: '🇩🇰' },
+            { name: 'Finland', flag: '🇫🇮' },
+            { name: 'Island', flag: '🇮🇸' },
+            { name: 'Tyskland', flag: '🇩🇪' },
+            { name: 'Frankrike', flag: '🇫🇷' },
+            { name: 'Spanien', flag: '🇪🇸' },
+            { name: 'Italien', flag: '🇮🇹' },
+            { name: 'Storbritannien', flag: '🇬🇧' },
+            { name: 'Kanada', flag: '🇨🇦' },
+            { name: 'USA', flag: '🇺🇸' },
+            { name: 'Mexiko', flag: '🇲🇽' },
+            { name: 'Brasilien', flag: '🇧🇷' },
+            { name: 'Argentina', flag: '🇦🇷' },
+            { name: 'Japan', flag: '🇯🇵' },
+            { name: 'Sydkorea', flag: '🇰🇷' },
+            { name: 'Kina', flag: '🇨🇳' },
+            { name: 'Indien', flag: '🇮🇳' },
+            { name: 'Australien', flag: '🇦🇺' },
+            { name: 'Nya Zeeland', flag: '🇳🇿' },
+            { name: 'Sydafrika', flag: '🇿🇦' },
+            { name: 'Egypten', flag: '🇪🇬' },
+            { name: 'Nigeria', flag: '🇳🇬' },
+            { name: 'Kenya', flag: '🇰🇪' },
+            { name: 'Ryssland', flag: '🇷🇺' },
+            { name: 'Nederländerna', flag: '🇳🇱' },
+            { name: 'Schweiz', flag: '🇨🇭' },
+            { name: 'Österrike', flag: '🇦🇹' },
+            { name: 'Portugal', flag: '🇵🇹' },
+            { name: 'Irland', flag: '🇮🇪' },
+            { name: 'Polen', flag: '🇵🇱' },
+            { name: 'Grekland', flag: '🇬🇷' },
+            { name: 'Thailand', flag: '🇹🇭' } // Sista elementet. Inga kommatecken (trailing commas) ska finnas efter denna rad.
+        ];
+
+        /**
+         * Slumpar fram ett element från en array.
+         * @param {Array<any>} array
+         * @returns {any}
+         */
+        function getRandomElement(array) {
+            return array[Math.floor(Math.random() * array.length)];
+        }
+
+        /**
+         * Genererar en ny fråga, uppdaterar UI:n.
+         */
+        function generateNewQuestion() {
+            if (countryData.length < 3) return; // Behöver minst 3 länder för att skapa en fråga
+
+            // 1. Välj det korrekta svaret slumpmässigt
+            correctAnswer = getRandomElement(countryData);
+            
+            // 2. Välj de två felaktiga alternativen
+            let incorrectOptions = countryData.filter(c => c.name !== correctAnswer.name);
+            
+            // Slumpa fram 2 unika felaktiga alternativ
+            incorrectOptions = shuffleArray(incorrectOptions).slice(0, 2);
+
+            // 3. Skapa listan med alla alternativ
+            const options = [correctAnswer, ...incorrectOptions];
+            
+            // 4. Blanda alternativen så att det rätta svaret inte alltid är på samma plats
+            const shuffledOptions = shuffleArray(options);
+
+            // 5. Uppdatera UI:n
+            flagDisplay.textContent = correctAnswer.flag;
+            optionsContainer.innerHTML = ''; // Rensa gamla knappar
+
+            shuffledOptions.forEach(country => {
+                const button = document.createElement('button');
+                button.textContent = country.name;
+                button.className = 'option-button bg-indigo-500 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:bg-indigo-600 transition duration-150 ease-in-out focus:outline-none focus:ring-4 focus:ring-indigo-300';
+                button.dataset.countryName = country.name;
+                button.addEventListener('click', handleGuess);
+                optionsContainer.appendChild(button);
+            });
+        }
+
+        /**
+         * Blanda en array (Fisher-Yates shuffle)
+         * @param {Array<any>} array
+         * @returns {Array<any>}
+         */
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        /**
+         * Hanterar användarens gissning.
+         * @param {Event} event
+         */
+        function handleGuess(event) {
+            // Förhindra att man klickar på fler knappar under feedback-tiden
+            optionsContainer.querySelectorAll('button').forEach(btn => btn.disabled = true);
+            
+            const selectedName = event.target.dataset.countryName;
+            const isCorrect = selectedName === correctAnswer.name;
+
+            if (isCorrect) {
+                score++;
+                showFeedback('Rätt! +1 Poäng', 'text-green-600', 'bg-green-100');
+            } else {
+                showFeedback('Fel! Inga poäng.', 'text-red-600', 'bg-red-100');
+            }
+
+            scoreDisplay.textContent = score;
+            
+            // Markera den klickade knappen (och det korrekta svaret)
+            optionsContainer.querySelectorAll('button').forEach(btn => {
+                if (btn.dataset.countryName === selectedName) {
+                    btn.classList.add(isCorrect ? 'ring-4', 'ring-green-500/50' : 'ring-4', 'ring-red-500/50');
+                }
+                if (!isCorrect && btn.dataset.countryName === correctAnswer.name) {
+                    // Markera rätt svar om man gissade fel
+                    btn.classList.add('bg-green-400', 'hover:bg-green-400');
+                }
+                btn.classList.remove('bg-indigo-500', 'hover:bg-indigo-600');
+                btn.classList.add('bg-gray-300', 'cursor-default');
+            });
+
+
+            // Vänta 1.5 sekunder och ladda sedan nästa fråga
+            setTimeout(() => {
+                // Ta bort feedback klasser och re-enable knappar (i generateNewQuestion)
+                optionsContainer.querySelectorAll('button').forEach(btn => btn.disabled = false);
+                generateNewQuestion();
+            }, 1500);
+        }
+
+        /**
+         * Visar ett temporärt meddelande.
+         * @param {string} message
+         * @param {string} textColorClass - t.ex. 'text-green-600'
+         * @param {string} bgClass - t.ex. 'bg-green-100'
+         */
+        function showFeedback(message, textColorClass, bgClass) {
+            messageDisplay.textContent = message;
+            // Ta bort gammal färg och animation
+            messageDisplay.className = 'font-bold text-lg opacity-0'; 
+            // Lägg till ny färg, bakgrund och starta om animationen
+            void messageDisplay.offsetWidth; // Trigger reflow for animation restart
+            messageDisplay.classList.add(textColorClass, bgClass, 'p-2', 'rounded-lg', 'shadow-sm');
+            messageDisplay.style.animation = 'none'; // Stoppa animation
+            setTimeout(() => {
+                messageDisplay.style.animation = ''; // Återställ för att starta om
+            }, 10);
+        }
+
+        /**
+         * Återställer spelet till grundtillståndet.
+         */
+        function resetGame() {
+            score = 0;
+            scoreDisplay.textContent = score;
+            messageDisplay.textContent = '';
+            messageDisplay.className = 'font-bold text-lg opacity-0';
+            generateNewQuestion();
+        }
+
+
+        // Eventlyssnare för "Börja om"
+        resetButton.addEventListener('click', resetGame);
+
+        // Starta spelet när sidan laddats
+        window.onload = generateNewQuestion;
+    </script>
